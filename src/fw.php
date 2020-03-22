@@ -2,7 +2,7 @@
 /*
  * @creator           : Gordon Lim <honwei189@gmail.com>
  * @created           : 12/05/2019 22:03:39
- * @last modified     : 22/03/2020 22:00:35
+ * @last modified     : 22/03/2020 22:10:17
  * @last modified by  : Gordon Lim <honwei189@gmail.com>
  */
 
@@ -166,34 +166,6 @@ class fw
     public function embed_view($label, $file, $data = null)
     {
         $this->html = str_replace("{{" . $label . "}}", $this->load_views($file, $data, false), $this->html);
-    }
-
-    public function http_error($code, $additional_info = null)
-    {
-        // $protocol = strchr($_SERVER['SERVER_PROTOCOL'], '.', true);
-        // header("HTTP/1.0 403 Forbidden");
-
-        switch($code){
-            case "403":
-                $dscpt = "403 Forbidden";
-            break;
-
-            case "404":
-                $dscpt = "404 Not Found";
-            break;
-
-            case "405":
-                $dscpt = "405 Method Not Allowed";
-            break;
-
-            case "406":
-                $dscpt = "406 Not Acceptable";
-            break;
-        }
-
-        $protocol = $_SERVER['SERVER_PROTOCOL'];
-        header($protocol . ' '. $dscpt .( is_value($additional_info) ? ".  {$additional_info}" : "" ));
-        exit;
     }
 
     public function execute()
@@ -467,7 +439,7 @@ class fw
             $file = $this->path . "app" . DIRECTORY_SEPARATOR . ($this->multi_app ? $this->app . DIRECTORY_SEPARATOR : "") . "controllers" . DIRECTORY_SEPARATOR . "main.php";
 
             if (!$this->load_controller($file, true)) {
-                $this->http_error(404);
+                $this->http->http_error(404);
             }
         }
     }
@@ -613,13 +585,13 @@ class fw
 
             if (isset($router['action']) && isset($this->http)) {
                 if (trim(strtolower($router['action'])) != strtolower($this->http->action)) {
-                    $this->http_error(403);
+                    $this->http->http_error(403);
                 }
             }
             
             if (isset($router['type']) && isset($router['type'])){
                 if (trim(strtolower($router['type'])) == "json" && $this->http->type != "json"){
-                    $this->http_error(406, "Form " . $this->http->action . " data is not json");
+                    $this->http->http_error(406, "Form " . $this->http->action . " data is not json");
                 }
             }
 
@@ -654,13 +626,13 @@ class fw
                     }
 
                 } elseif ($router['params'] != "*") {
-                    return $this->http_error(404);
+                    return $this->http->http_error(404);
                 }
             } else {
                 $uri = preg_split("|/|", str_replace($route, "", $_SERVER['REQUEST_URI']), -1, PREG_SPLIT_NO_EMPTY);
 
                 if (count($uri) > 0) {
-                    return $this->http_error(404);
+                    return $this->http->http_error(404);
                 }
             }
 
