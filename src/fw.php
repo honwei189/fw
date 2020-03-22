@@ -2,7 +2,7 @@
 /*
  * @creator           : Gordon Lim <honwei189@gmail.com>
  * @created           : 12/05/2019 22:03:39
- * @last modified     : 21/03/2020 16:20:06
+ * @last modified     : 22/03/2020 16:01:25
  * @last modified by  : Gordon Lim <honwei189@gmail.com>
  */
 
@@ -24,7 +24,7 @@ use \honwei189\flayer as flayer;
  * @link        https://github.com/honwei189/fw/
  * @link        https://appsw.dev
  * @link        https://justtest.app
- * @version     "1.0.0"
+ * @version     "1.0.1" 22/03/2020 15:56:39 Rectified some bugs and do some small enhancements
  * @since       "1.0.0"
  */
 class fw
@@ -62,7 +62,7 @@ class fw
 
     public function __construct()
     {
-        $this->http = flayer::bind("\\emitof9999\\http");
+        $this->http = flayer::bind("\\honwei189\\http");
 
         if (php_sapi_name() == 'cli-server') {
             if (preg_match('/\.(?:png|jpg|jpeg|gif)$/', $_SERVER["REQUEST_URI"])) {
@@ -113,6 +113,8 @@ class fw
         $reroute = false;
 
         if (php_sapi_name() != "cli") {
+            $this->load_routes();
+
             if (isset($this->configuration['ROUTES']) && is_array($this->configuration['ROUTES'])) {
                 $reroute = $this->uri_reroute();
             }
@@ -166,6 +168,15 @@ class fw
         $this->html = str_replace("{{" . $label . "}}", $this->load_views($file, $data, false), $this->html);
     }
 
+    public function error_404()
+    {
+        // $protocol = strchr($_SERVER['SERVER_PROTOCOL'], '.', true);
+        $protocol = $_SERVER['SERVER_PROTOCOL'];
+        header($protocol . ' 404 Not Found');
+        // header("HTTP/1.0 404 Not Found");
+        exit;
+    }
+
     public function execute()
     {
         $reroute = false;
@@ -193,7 +204,7 @@ class fw
         }
     }
 
-    public function load_controller($file)
+    public function load_controller($file, $exit_if_not_found = false)
     {
         if (is_file($file)) {
             include_once $file;
@@ -221,12 +232,17 @@ class fw
                         $this->uri = "";
                     }
 
+                    $instance->data = $this->params;
                     $instance->http = $this->http;
                     $instance->uri  = $this->uri;
                     $instance->$method();
                 } else {
+                    if ($exit_if_not_found) {
+                        return false;
+                    }
+
                     $this->uri = str_replace("/" . $this->controller, "", $_SERVER['REQUEST_URI']);
-                    if (strpos($this->uri, "/") === 0){
+                    if (strpos($this->uri, "/") === 0) {
                         $this->uri = substr($this->uri, 1);
                     }
 
@@ -240,6 +256,7 @@ class fw
                         $this->method = null;
                     }
 
+                    $instance->data = $this->params;
                     $instance->http = $this->http;
                     $instance->uri  = $this->uri;
                     $instance->index();
@@ -259,6 +276,15 @@ class fw
 
         if (is_file($file)) {
             include_once $file;
+        }
+    }
+
+    public function load_routes()
+    {
+        $file = $this->path . "app" . DIRECTORY_SEPARATOR . ($this->multi_app ? $this->app . DIRECTORY_SEPARATOR : "") . "routes.php";
+
+        if (is_file($file)) {
+            $this->configuration['ROUTES'] = include $file;
         }
     }
 
@@ -365,7 +391,7 @@ class fw
             $module = self::$app;
         }
 
-        $file = self::$path . "/apps/{$module}/templates/{$name}.php";
+        $file = self::$path . "/app/{$module}/templates/{$name}.php";
 
         if (!file_exists($file)) {
             echo "<h1>$file not found</h1>";
@@ -382,7 +408,7 @@ class fw
             if (is_array($reg)) {
                 foreach ($reg[0] as $idx => $val) {
 
-                    $tpl = self::$path . "/apps/{$module}/templates/" . strtolower($reg[1][$idx]) . ".php";
+                    $tpl = self::$path . "/app/{$module}/templates/" . strtolower($reg[1][$idx]) . ".php";
                     //if(file_exists($tpl)){
                     if (is_file($tpl)) {
                         ob_start();
@@ -416,7 +442,14 @@ class fw
         $file = $this->path . "app" . DIRECTORY_SEPARATOR . ($this->multi_app ? $this->app . DIRECTORY_SEPARATOR : "") . "controllers" . DIRECTORY_SEPARATOR . $this->controller . ".php";
 
         if (!$this->load_controller($file)) {
+            $this->method     = $this->controller;
+            $this->controller = "main";
 
+            $file = $this->path . "app" . DIRECTORY_SEPARATOR . ($this->multi_app ? $this->app . DIRECTORY_SEPARATOR : "") . "controllers" . DIRECTORY_SEPARATOR . "main.php";
+
+            if (!$this->load_controller($file, true)) {
+                $this->error_404();
+            }
         }
     }
 
@@ -495,35 +528,57 @@ class fw
 
         $uri = parse_url($_SERVER['REQUEST_URI']);
         if (isset($uri['path']) && $uri['path'] !== "/") {
-            $_ = explode("/", $uri['path']);
+            $_ = preg_split("|/|", $uri['path'], -1, PREG_SPLIT_NO_EMPTY);
 
             $i      = 0;
             $route  = null;
             $router = null;
-            while ($match === false) {
-                $path = ($i > 0 ? "/" : "") . $_[$i];
+            // while ($match === false) {
+            //     $path = $_[$i];
 
-                if (isset($this->configuration['routes']['/' . $path])) {
-                    $match           = true;
-                    $route           = "/$path";
-                    $router          = $this->configuration['routes']['/' . $path];
-                    $this->route_map = $route;
+            //     if (isset($this->configuration['ROUTES']['/' . $path])) {
+            //         $match           = true;
+            //         $route           = "/$path";
+            //         $router          = $this->configuration['ROUTES']['/' . $path];
+            //         $this->route_map = $route;
+            //     }
+
+            //     if (isset($this->configuration['ROUTES'][$path])) {
+            //         $match           = true;
+            //         $route           = "$path";
+            //         $router          = $this->configuration['ROUTES'][$path];
+            //         $this->route_map = $route;
+            //     }
+
+            //     ++$i;
+            // }
+
+            // unset($_);
+            // unset($i);
+            // unset($uri);
+            // unset($path);
+
+            if (isset($_) && is_array($_) && count($_) > 0) {
+                $path = "";
+                foreach ($_ as $k => $v) {
+                    $path .= "/" . $v;
+
+                    if (isset($this->configuration['ROUTES'][$path])) {
+                        $match           = true;
+                        $route           = "$path";
+                        $router          = $this->configuration['ROUTES'][$path];
+                        $this->route_map = $route;
+
+                        // if(is_array($router['params'])){
+
+                        // }elseif($router['params'] == "*"){
+                        //     break;
+                        // }
+
+                        break;
+                    }
                 }
-
-                if (isset($this->configuration['routes'][$path])) {
-                    $match           = true;
-                    $route           = "$path";
-                    $router          = $this->configuration['routes'][$path];
-                    $this->route_map = $route;
-                }
-
-                ++$i;
             }
-
-            unset($_);
-            unset($i);
-            unset($uri);
-            unset($path);
 
             if (isset($router['controller'])) {
                 $this->controller = $router['controller'];
@@ -537,28 +592,50 @@ class fw
                 $this->method = "index";
             }
 
-            if (isset($router['params'])) {
-                $uri = explode("/", str_replace($route, "", $_SERVER['REQUEST_URI']), $route);
-
-                if (is_array($router['params'])) {
-                    $_ = $router['params'];
-                    unset($router['params']);
-
-                    $router['params'][] = $_;
-                    unset($_);
+            if (isset($router['header']) && isset($this->http)) {
+                if (strtolower($router['header']) != strtolower($this->http->header)) {
+                    $this->error_404();
                 }
+            }
 
-                $nums_params = count($router['params']);
+            if (isset($router['params'])) {
+                if (is_array($router['params'])) {
+                    $uri = preg_split("|/|", str_replace($route, "", $_SERVER['REQUEST_URI']), -1, PREG_SPLIT_NO_EMPTY);
 
-                $i = 0;
-                $x = 0;
-                while ($nums_params > $i) {
-                    if (isset($uri[$x]{0})) {
-                        $this->params[$router['params'][$i]] = trim(urldecode($uri[$x]));
-                        ++$i;
+                    if (is_array($router['params'])) {
+                        $_ = $router['params'];
+                        unset($router['params']);
+
+                        $router['params'][] = $_;
+                        unset($_);
                     }
 
-                    ++$x;
+                    $nums_params = count($router['params'][0]);
+
+                    if ($nums_params > 0) {
+                        foreach ($router['params'][0] as $k => $v) {
+                            $this->params[$v] = trim(urldecode($uri[$k]));
+                        }
+                    }
+
+                    $i = 0;
+                    $x = 0;
+                    while ($nums_params < $i) {
+                        if (isset($uri[$x]) && is_value($uri[$x])) {
+                            $this->params[$router['params'][$i]] = trim(urldecode($uri[$x]));
+                            ++$i;
+                        }
+                        ++$x;
+                    }
+
+                } elseif ($router['params'] != "*") {
+                    return $this->error_404();
+                }
+            } else {
+                $uri = preg_split("|/|", str_replace($route, "", $_SERVER['REQUEST_URI']), -1, PREG_SPLIT_NO_EMPTY);
+
+                if (count($uri) > 0) {
+                    return $this->error_404();
                 }
             }
 
