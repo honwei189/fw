@@ -22,8 +22,6 @@ use \honwei189\flayer as flayer;
  * @subpackage
  * @author      Gordon Lim <honwei189@gmail.com>
  * @link        https://github.com/honwei189/fw/
- * @link        https://appsw.dev
- * @link        https://justtest.app
  * @version     "1.0.1" 22/03/2020 15:56:39 Rectified some bugs and do some small enhancements
  * @since       "1.0.0"
  */
