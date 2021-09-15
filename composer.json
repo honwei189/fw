@@ -1,0 +1,22 @@
+{
+    "name": "honwei189/fw",
+    "description": "Tiny & lightweight framework.  Supports MVC.  Use for Web App or RESTful API",
+    "authors": [{
+        "name": "Gordon Lim",
+        "email": "honwei189@gmail.com"
+    }],
+    "require": {
+        "honwei189/flayer": "~1.0",
+        "php": ">=7.3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "honwei189\\Fw\\": "src/"
+        }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "1.1-dev"
+        }
+    }
+}
